@@ -30,10 +30,6 @@ HELPTEXT = "\
 \n    test_pydablooms            \
 \n\n"
 
-# only bump major on ABI changing release
-SO_VER_MAJOR = 1
-SO_VER_MINOR = 1
-
 prefix = /usr/local
 libdir = $(prefix)/lib
 includedir = $(prefix)/include
@@ -49,6 +45,12 @@ INSTALL = install
 CC = gcc
 AR = ar
 
+### dynamic shared object ###
+
+# shared-object version does not follow software release version
+SO_VER_MAJOR = 1
+SO_VER_MINOR = 1
+
 SO_VER = $(SO_VER_MAJOR).$(SO_VER_MINOR)
 SO_NAME = so
 SO_CMD = -soname
@@ -63,14 +65,21 @@ ifeq ($(UNAME),Darwin)
 endif
 SHARED_LDFLAGS = -shared -Wl,$(SO_CMD),libdablooms.$(SO_EXT_MAJOR)
 
+### sources and outputs ###
+
 SRCS_LIBDABLOOMS = dablooms.c murmur.c
 SRCS_TESTS = test_dablooms.c
-WORDS = /usr/share/dict/words
+
 OBJS_LIBDABLOOMS = $(patsubst %.c, $(BLDDIR)/%.o, $(SRCS_LIBDABLOOMS))
 OBJS_TESTS = $(patsubst %.c, $(BLDDIR)/%.o, $(SRCS_TESTS))
 
 LIB_SYMLNKS = libdablooms.$(SO_NAME) libdablooms.$(SO_EXT_MAJOR)
 LIB_FILES = libdablooms.a libdablooms.$(SO_EXT) $(LIB_SYMLNKS)
+
+# for tests
+WORDS = /usr/share/dict/words
+
+### rules ###
 
 # default target (needs to be first target)
 all: libdablooms
@@ -140,7 +149,8 @@ clean:
 
 PYTHON = python
 PY_BLDDIR = $(BLDDIR)/python
-PY_MOD_DIR := $(shell $(PYTHON) -c "import distutils.sysconfig ; print(distutils.sysconfig.get_python_lib())")
+PY_MOD_DIR_ARG = # optional: --user or --system
+PY_MOD_DIR := $(shell $(PYTHON) pydablooms/modpath.py $(PY_MOD_DIR_ARG))
 PY_FLAGS = --build-lib=$(PY_BLDDIR) --build-temp=$(PY_BLDDIR)
 PY_BLD_ENV = BLDDIR="$(BLDDIR)"
 
@@ -153,7 +163,7 @@ $(DESTDIR)$(PY_MOD_DIR)/pydablooms.so: $(PY_BLDDIR)/pydablooms.so
 	@$(INSTALL) -d $(dir $@)
 	@$(INSTALL) $< $@
 
-$(PY_BLDDIR)/pydablooms.so: $(BLDDIR)/libdablooms.a pydablooms/pydablooms.c
+$(PY_BLDDIR)/pydablooms.so: pydablooms/pydablooms.c src/dablooms.c src/murmur.c
 	@echo " PY_BUILD" $@
 	@$(PY_BLD_ENV) $(PYTHON) pydablooms/setup.py build $(PY_FLAGS) >/dev/null
 
